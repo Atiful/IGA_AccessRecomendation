@@ -1,4 +1,11 @@
 {
+  "name": "iga-access-recommendation-engine",
+  "version": "1.0.0",
+  "description": "NextGen IGA Platform — Access Recommendation Engine",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "nodemon src/app.js"
+  },
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

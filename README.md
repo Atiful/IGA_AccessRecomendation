@@ -20,8 +20,7 @@ cp .env
 
 ### 4. Start the server
 ```bash
-npm start       # production
-npm run dev     # development (nodemon)
+npm start 
 ```
 
 ---
@@ -117,7 +116,7 @@ Bulk recommendations — use for (certification campaigns).
 
 ---
 
-#### POST `/api/recommendations/explain`
+#### POST `/api/access-requests/`
 Explainability API — full audit trail, weights, and thresholds used for a decision.
 
 **Request Body:**
