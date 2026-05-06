@@ -9,11 +9,7 @@ const { errorHandler, notFound } = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 
 // Routes
-// const recommendationsRouter = require('./routes/recommendations');
-// const eventsRouter          = require('./routes/events');
-// const adminRouter           = require('./routes/admin');
 const accessRequestsRouter  = require('./routes/accessRequests');
-// const usersRouter           = require('./routes/users');
 
 const {app} = require('./index.js');
 
@@ -41,11 +37,8 @@ const limiter = rateLimit({
 // app.use('/api', limiter);
 
 // ─── Routes ────────────────────────────────────────────────────────────────
-// app.use('/api/recommendations',  recommendationsRouter);
-// app.use('/api/events',           eventsRouter);
-// app.use('/api/admin',            adminRouter);
 app.use('/api/access-requests',  accessRequestsRouter);
-// app.use('/api/users',            usersRouter);
+
 
 
 
