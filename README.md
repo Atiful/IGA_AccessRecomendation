@@ -95,11 +95,11 @@ Called when a user selects an entitlement. Returns a peer-based recommendation b
 
 **Decision Values**
 
-| Decision | Score Range | Meaning |
-|---|---|---|
-| `STRONGLY_RECOMMEND` | > 0.7 | Majority of peers have this access — safe to grant |
-| `RECOMMEND_WITH_CAUTION` | 0.4 – 0.7 | Moderate peer adoption — manual review advised |
-| `DO_NOT_RECOMMEND` | < 0.4 | Low peer adoption — request may be unjustified |
+| Decision
+|---|
+| `STRONGLY_RECOMMEND`
+| `RECOMMEND_WITH_CAUTION`
+| `DO_NOT_RECOMMEND`
 
 **Error Responses**
 
@@ -252,9 +252,5 @@ The bulk endpoint avoids the naive pattern of one DB query per task. Instead it 
 | Batch access details | One query per unique `(role_id, manager_id, role)` combo | ~10–15 |
 | pLimit concurrency | Scoring runs through a sliding window of max 10 concurrent tasks | 0 |
 
-**Before vs After for 100 tasks:**
-
-```
-Old code: 100 access checks + 100 user fetches + 100 access detail queries = 300 DB queries
-New code: 1 + 1 + ~15 unique combos                                        = ~17 DB queries
+                    
 ```
