@@ -212,6 +212,226 @@ Accepts multiple users and roles in a single request. Applies deduplication, bat
 
 ---
 
+
+
+# POST `/access-review`
+
+Audits a bulk list of user-role combinations and returns **only actionable results** — entries where access is risky or access is missing but recommended. Clean/irrelevant combinations are silently dropped.
+
+---
+
+## When is a result returned?
+
+| Has Access | Decision | Status Returned | Action Needed |
+|---|---|---|---|
+| ✅ Yes | `DO_NOT_RECOMMEND` | `risky_access` | Review / revoke |
+| ✅ Yes | `RECOMMEND_WITH_CAUTION` | _(dropped)_ | None |
+| ✅ Yes | `STRONGLY_RECOMMEND` | _(dropped)_ | None |
+| ❌ No | `STRONGLY_RECOMMEND` | `recommended_to_grant` | Grant access |
+| ❌ No | `RECOMMEND_WITH_CAUTION` | _(dropped)_ | None |
+| ❌ No | `DO_NOT_RECOMMEND` | _(dropped)_ | None |
+| Any | Error during processing | `failed` | Investigate |
+
+---
+
+## Request
+
+**Method:** `POST`  
+**Content-Type:** `application/json`
+
+### Body
+
+```json
+{
+  "requests": [
+    {
+      "user_id": "usr-0017-0000-0000-0000-000000000001",
+      "items": [
+        { "requested_role": "AWS ReadOnly Access", "justification": "Needed for deployments" },
+        { "requested_role": "S3 Read",             "justification": "Log access" }
+      ]
+    },
+    {
+      "user_id": "usr-0012-0000-0000-0000-000000000002",
+      "items": [
+        { "requested_role": "AWS EC2 Admin", "justification": "Project requirement" }
+      ]
+    }
+  ]
+}
+```
+
+### Field Reference
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `requests` | `array` | ✅ | List of user-role audit requests |
+| `requests[].user_id` | `string` | ✅ | Unique identifier of the user |
+| `requests[].items` | `array` | ✅ | List of roles to audit for this user |
+| `requests[].items[].requested_role` | `string` | ✅ | Role/entitlement name to check |
+| `requests[].items[].justification` | `string` | ❌ | Optional reason, passed through to response |
+
+> **Limits:** Max `500` unique `user_id + requested_role` combinations per request. Duplicate combinations are automatically deduplicated.
+
+---
+
+## Response
+
+### Success `200`
+
+```json
+{
+  "success": true,
+  "total": 3,
+  "flagged": 2,
+  "summary": {
+    "risky_access": 1,
+    "failed": 1
+  },
+  "results": [
+    {
+      "user_id": "usr-0017-0000-0000-0000-000000000001",
+      "requested_role": "S3 Read",
+      "justification": "Log access",
+      "has_access": true,
+      "status": "risky_access",
+      "message": "User has this access but it is flagged as risky or uncommon",
+      "proactiveRecommendation": {
+        "userId": "usr-0017-0000-0000-0000-000000000001",
+        "accessType": "S3 Read",
+        "score": 0,
+        "decision": "DO_NOT_RECOMMEND",
+        "risk_level": "low",
+        "confidence": "0.00",
+        "breakdown": {
+          "same_manager":      { "total": 0, "with_access": 0, "percentage": "0%" },
+          "different_manager": { "total": 0, "with_access": 0, "percentage": "0%" }
+        },
+        "reason": "Only 0% under same manager and 0% across other managers have this access. For 'low' risk level, this is considered unsafe or uncommon."
+      }
+    },
+    {
+      "user_id": "usr-0012-0000-0000-0000-000000000002",
+      "requested_role": "AWS EC2 Admin",
+      "justification": "Project requirement",
+      "has_access": false,
+      "status": "failed",
+      "error": "User usr-0012-0000-0000-0000-000000000002 not found or inactive"
+    }
+  ]
+}
+```
+
+### Response Field Reference
+
+| Field | Type | Description |
+|---|---|---|
+| `success` | `boolean` | Always `true` for a valid response |
+| `total` | `number` | Total unique tasks processed (after deduplication) |
+| `flagged` | `number` | Count of actionable results returned (excludes dropped entries) |
+| `summary` | `object` | Count of each status present in `results` |
+| `results` | `array` | Only actionable entries — see statuses below |
+
+### Result Object Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `user_id` | `string` | User identifier |
+| `requested_role` | `string` | Role/entitlement that was audited |
+| `justification` | `string` | Passed through from request if provided |
+| `has_access` | `boolean` | Whether the user currently holds this access |
+| `status` | `string` | One of `risky_access`, `recommended_to_grant`, `failed` |
+| `message` | `string` | Human-readable description of the finding |
+| `proactiveRecommendation` | `object` | Full recommendation object (absent on `failed`) |
+| `error` | `string` | Error detail (only present on `failed`) |
+
+---
+
+## Result Statuses
+
+### `risky_access`
+User **has** the access but the recommendation engine returned `DO_NOT_RECOMMEND`.
+
+Indicates the access is statistically uncommon among peers with the same manager or across the organisation, making it a candidate for review or revocation.
+
+```json
+{
+  "has_access": true,
+  "status": "risky_access",
+  "message": "User has this access but it is flagged as risky or uncommon"
+}
+```
+
+---
+
+### `recommended_to_grant`
+User **does not have** the access but the recommendation engine returned `STRONGLY_RECOMMEND`.
+
+Indicates a high proportion of peers under the same manager hold this access, suggesting it is standard for the user's role and should likely be provisioned.
+
+```json
+{
+  "has_access": false,
+  "status": "recommended_to_grant",
+  "message": "User does not have this access but it is strongly recommended"
+}
+```
+
+---
+
+### `failed`
+The recommendation engine threw an error for this entry (e.g. user not found, inactive user, service error). No `proactiveRecommendation` is returned.
+
+```json
+{
+  "has_access": false,
+  "status": "failed",
+  "error": "User usr-0012-0000-0000-0000-000000000002 not found or inactive"
+}
+```
+
+---
+
+## `proactiveRecommendation` Object
+
+| Field | Type | Description |
+|---|---|---|
+| `userId` | `string` | User the recommendation was computed for |
+| `accessType` | `string` | Role/entitlement evaluated |
+| `score` | `number` | Numeric score `0–100` driving the decision |
+| `decision` | `string` | `STRONGLY_RECOMMEND`, `RECOMMEND_WITH_CAUTION`, or `DO_NOT_RECOMMEND` |
+| `risk_level` | `string` | Sensitivity classification of the role (e.g. `low`, `medium`, `high`) |
+| `confidence` | `string` | Confidence of the recommendation as a decimal string e.g. `"0.87"` |
+| `breakdown.same_manager` | `object` | Peer stats among users sharing the same manager |
+| `breakdown.different_manager` | `object` | Peer stats across the rest of the organisation |
+| `reason` | `string` | Human-readable explanation of the decision |
+
+### Decision Values
+
+| Decision | Meaning |
+|---|---|
+| `STRONGLY_RECOMMEND` | High peer adoption under same manager — access is standard for this role |
+| `RECOMMEND_WITH_CAUTION` | Moderate peer adoption — access may be appropriate but warrants review |
+| `DO_NOT_RECOMMEND` | Low peer adoption — access is uncommon or atypical, potential security risk |
+
+---
+
+## Error Responses
+
+### `400` — Invalid Input
+
+```json
+{ "success": false, "error": "INVALID_INPUT",   "message": "requests array is required" }
+{ "success": false, "error": "NO_VALID_TASKS",  "message": "No valid tasks found" }
+{ "success": false, "error": "TOO_MANY_TASKS",  "message": "Max 500 unique tasks per request" }
+```
+
+### `500` — Server Error
+
+```json
+{ "success": false, "error": "INTERNAL_ERROR", "message": "Internal server error" }
+```
+
 ## Architecture Notes
 
 ### Scoring Algorithm

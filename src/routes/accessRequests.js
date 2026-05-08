@@ -59,6 +59,8 @@ async function getExistingAccessSet(tasks) {
   return existingSet;
 }
 
+
+
 // ──────────────────────────────────────────────────────────────
 // POST /access-requests  (single)
 // ──────────────────────────────────────────────────────────────
@@ -224,6 +226,141 @@ router.post('/bulk', async (req, res, next) => {
       total  : tasks.length,
       summary,
       results
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+
+
+router.post('/access-review', async (req, res, next) => {
+  try {
+    const { requests } = req.body;
+
+    if (!Array.isArray(requests) || requests.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error  : 'INVALID_INPUT',
+        message: 'requests array is required'
+      });
+    }
+
+    // Step 1 — Deduplicate
+    const tasks = deduplicateTasks(requests);
+
+    if (tasks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error  : 'NO_VALID_TASKS',
+        message: 'No valid tasks found'
+      });
+    }
+
+    // Step 2 — Hard cap
+    if (tasks.length > MAX_TASKS) {
+      return res.status(400).json({
+        success: false,
+        error  : 'TOO_MANY_TASKS',
+        message: `Max ${MAX_TASKS} unique tasks per request`
+      });
+    }
+
+    // Step 3 — Batch DB: existing access check (1 query)
+    const existingAccessSet = await getExistingAccessSet(tasks);
+
+    // Step 4 — Batch DB: fetch all users (1 query)
+    const uniqueUserIds = [...new Set(tasks.map(t => t.user_id))];
+    const userMap = await batchGetUsers(uniqueUserIds);
+
+    // Step 5 — Batch DB: fetch all access details for ALL tasks
+    const accessMap = await batchGetAccessDetails(tasks, userMap);
+
+    // Step 6 — Process with pLimit
+    const limit = pLimit(CONCURRENCY);
+
+    const results = await Promise.all(
+      tasks.map(task => limit(async () => {
+        const { user_id, requested_role, justification } = task;
+        const key       = `${user_id}::${requested_role}`;
+        const hasAccess = existingAccessSet.has(key);
+
+        let recommendation = null;
+        try {
+          recommendation = await getBulkRecommendation({
+            userId    : user_id,
+            accessType: requested_role,
+            context   : 'REQUEST',
+            userMap,
+            accessMap
+          });
+        } catch (err) {
+          logger.error(err);
+          return {
+            user_id,
+            requested_role,
+            justification,
+            has_access: hasAccess,
+            status    : 'failed',
+            error     : err.message
+          };
+        }
+
+        const decision = recommendation?.decision;
+
+        // ── Case 1: Has access AND risky — flag it ────────────────────
+        if (hasAccess && decision === 'DO_NOT_RECOMMEND') {
+          return {
+            user_id,
+            requested_role,
+            justification,
+            has_access             : true,
+            status                 : 'risky_access',
+            message                : 'User has this access but it is flagged as risky or uncommon',
+            proactiveRecommendation: recommendation
+          };
+        }
+
+        // ── Case 2: Has access AND fine — no action needed, drop it ───
+        if (hasAccess) {
+          return null;
+        }
+
+        // ── Case 3: No access AND strongly recommended — flag it ──────
+        if (decision === 'STRONGLY_RECOMMEND') {
+          return {
+            user_id,
+            requested_role,
+            justification,
+            has_access             : false,
+            status                 : 'recommended_to_grant',
+            message                : 'User does not have this access but it is strongly recommended',
+            proactiveRecommendation: recommendation
+          };
+        }
+
+        // ── Case 4: No access AND not recommended — no action needed, drop it
+        return null;
+      }))
+    );
+
+    // Step 7 — Filter out nulls (no-action cases)
+    const filteredResults = results.filter(r => r !== null);
+
+    // Step 8 — Summary
+    const summary = filteredResults.reduce((acc, r) => {
+      acc[r.status] = (acc[r.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      success: true,
+      total  : tasks.length,
+      flagged: filteredResults.length,
+      summary,
+      results: filteredResults
     });
 
   } catch (err) {
