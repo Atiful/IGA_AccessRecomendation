@@ -214,7 +214,7 @@ Accepts multiple users and roles in a single request. Applies deduplication, bat
 
 
 
-# POST `/access-review`
+# POST `/api/access-requests/access-review/`
 
 Audits a bulk list of user-role combinations and returns **only actionable results** — entries where access is risky or access is missing but recommended. Clean/irrelevant combinations are silently dropped.
 

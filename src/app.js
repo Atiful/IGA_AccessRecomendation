@@ -37,7 +37,7 @@ const limiter = rateLimit({
 // app.use('/api', limiter);
 
 // ─── Routes ────────────────────────────────────────────────────────────────
-app.use('/api',  accessRequestsRouter);
+app.use('/api/access-requests',  accessRequestsRouter);
 
 
 
