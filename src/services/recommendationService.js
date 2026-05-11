@@ -6,9 +6,9 @@ const { getRiskScore } = require('./riskScore');
 async function getUserForRecommendation(userId) {
   const rows = await query(`
     SELECT u.id, u.role_id, u.manager_id, r.role_type, r.role_name
-    FROM USERS u
-    LEFT JOIN ROLES r ON r.id = u.role_id
-    WHERE u.id = ? AND u.status = 'active'
+    FROM users u
+    LEFT JOIN roles r ON r.id = u.role_id
+    WHERE u.id = ? AND LOWER(u.status) = 'active'
   `, [userId]);
 
   if (!rows || rows.length === 0) {
@@ -52,8 +52,8 @@ async function batchGetUsers(userIds) {
   const placeholders = userIds.map(() => '?').join(', ');
   const rows = await query(`
     SELECT u.id, u.role_id, u.manager_id, r.role_type, r.role_name
-    FROM USERS u
-    LEFT JOIN ROLES r ON r.id = u.role_id
+    FROM users u
+    LEFT JOIN roles r ON r.id = u.role_id
     WHERE u.id IN (${placeholders}) AND u.status = 'active'
   `, userIds);
 

@@ -43,12 +43,12 @@ function deduplicateTasks(requests) {
 async function getExistingAccessSet(tasks) {
   if (tasks.length === 0) return new Set();
 
-  const conditions = tasks.map(() => '(user_id = ? AND access_type = ?)').join(' OR ');
+  const conditions = tasks.map(() => '(user_id = ? AND application_id = ?)').join(' OR ');
   const values     = tasks.flatMap(t => [t.user_id, t.requested_role]);
 
   const rows = await query(`
-    SELECT user_id, access_type
-    FROM USER_ACCESS
+    SELECT user_id, application_id
+    FROM user_access
     WHERE (${conditions}) AND status = 'active'
   `, values);
 
@@ -77,9 +77,14 @@ router.post('/', async (req, res, next) => {
     }
 
     // Check existing access
-    const alreadyHas = await query(`
-      SELECT id FROM USER_ACCESS
-      WHERE user_id = ? AND access_type = ? AND status = 'active'
+    // const alreadyHas = await query(`
+    //   SELECT id FROM USER_ACCESS
+    //   WHERE user_id = ? AND access_type = ? AND status = 'active'
+    // `, [user_id, requested_role]);
+
+     const alreadyHas = await query(`
+      SELECT id FROM user_access
+      WHERE user_id = ? AND application_id = ? AND LOWER(status) = 'active'
     `, [user_id, requested_role]);
 
     if (alreadyHas.length > 0) {
@@ -234,7 +239,9 @@ router.post('/bulk', async (req, res, next) => {
 });
 
 
-
+router.get("/access-review" , (req , res) => {
+ res.json("hello");
+});
 
 router.post('/access-review', async (req, res, next) => {
   try {
