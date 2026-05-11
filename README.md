@@ -46,7 +46,7 @@ src/
 
 ## API Reference
 
-Base URL: `/api/access-requests`
+Base URL: `https://iga-accessrecomendation.onrender.com`
 
 ---
 
