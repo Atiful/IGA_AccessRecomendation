@@ -16,41 +16,62 @@ async function refreshPrecomputedTable() {
 
       // 2. Insert computed data into NEW table
 await conn.query(`
-    INSERT INTO ROLE_ACCESS_SUMMARY_NEW
-    (
+   INSERT INTO ROLE_ACCESS_SUMMARY_NEW
+(
+    role_id,
+    manager_id,
+    access_type,
+    total_people,
+    users_with_access,
+    risk_level,
+    requestable_by
+)
+
+SELECT
+
+    rm.role_id,
+
+    rm.manager_id,
+
+    ac.name AS access_type,
+
+    rm.total_people,
+
+    COUNT(DISTINCT ua.user_id) AS users_with_access,
+
+    ac.risk_level,
+
+    ac.requestable_by
+
+FROM
+(
+    -- all role + manager combinations
+    SELECT
         role_id,
-        manager_id,
-        total_people,
-        access_type,
-        users_with_access,
-        risk_level,
-        requestable_by
-    )
-    SELECT 
-        r.id AS role_id,
-        COALESCE(u.manager_id, 'NO_MANAGER') AS manager_id,
+        COALESCE(manager_id, 'NO_MANAGER') AS manager_id,
+        COUNT(*) AS total_people
+    FROM USERS
+    GROUP BY role_id, manager_id
+) rm
 
-        COUNT(DISTINCT u.id) AS total_people,
+CROSS JOIN ACCESS_CATALOG ac
 
-        COALESCE(ar.requested_role, 'NO_ACCESS') AS access_type,
+LEFT JOIN USERS u
+    ON u.role_id = rm.role_id
+   AND COALESCE(u.manager_id, 'NO_MANAGER') = rm.manager_id
 
-        COUNT(DISTINCT CASE 
-            WHEN ar.status = 'approved' THEN u.id 
-        END) AS users_with_access,
+LEFT JOIN USER_ACCESS ua
+    ON ua.user_id = u.id
+   AND ua.access_type = ac.name
+   AND ua.status = 'active'
 
-        MAX(ac.risk_level) AS risk_level,
-        MAX(ac.requestable_by) AS requestable_by
-
-    FROM USERS u
-    JOIN ROLES r ON u.role_id = r.id
-    LEFT JOIN ACCESS_REQUESTS ar ON u.id = ar.user_id
-    LEFT JOIN ACCESS_CATALOG ac 
-        ON ar.requested_role = ac.name
-
-    GROUP BY 
-        r.id,
-        manager_id,
-        access_type;
+GROUP BY
+    rm.role_id,
+    rm.manager_id,
+    ac.name,
+    rm.total_people,
+    ac.risk_level,
+    ac.requestable_by;
 `);
       
 

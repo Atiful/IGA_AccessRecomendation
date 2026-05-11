@@ -5,6 +5,8 @@ const logger = require('../utils/logger');
 
 let pool;
 
+    console.log(process.env.DB_HOST);
+
 function getPool() {
   if (!pool) {
     pool = mysql.createPool({
@@ -52,6 +54,6 @@ async function checkConnection(){
     console.log(res);
 }
 
-// checkConnection();
+
 
 module.exports = { getPool, query, transaction };

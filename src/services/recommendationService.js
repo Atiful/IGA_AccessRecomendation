@@ -115,6 +115,7 @@ async function batchGetAccessDetails(tasks, userMap) {
 async function getSingleRecommendation({ userId, accessType, context, mode }) {
   try {
     const user = await getUserForRecommendation(userId);
+    console.log(user);
     const accessDetails = await getAccessDetails(user.role_id, user.manager_id, accessType);
 
     // ✅ Fixed: pass object as second argument to match getRiskScore signature

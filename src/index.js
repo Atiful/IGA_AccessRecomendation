@@ -21,7 +21,7 @@ async function boot() {
   });
 
   // precomputed job 
-//   startPrecomputeJob();
+  startPrecomputeJob();
 
   // Graceful shutdown
   const shutdown = async (signal) => {

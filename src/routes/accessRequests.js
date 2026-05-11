@@ -104,7 +104,7 @@ router.post('/', async (req, res, next) => {
       return res.status(500).json({
         success: false,
         error  : 'RECOMMENDATION_FAILED',
-        message: 'Something went wrong while calculating recommendation',
+        message: recErr,
       });
     }
 
