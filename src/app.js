@@ -6,13 +6,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const cors = require("cors");
 
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "*");
-    res.header("Access-Control-Allow-Methods", "*");
 
-    next();
-});
 
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
@@ -26,6 +20,13 @@ const {app} = require('./index.js');
 app.use(helmet());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "*");
+    res.header("Access-Control-Allow-Methods", "*");
+
+    next();
+});
 
 // ─── Request Logging ───────────────────────────────────────────────────────
 app.use(morgan('combined', {
