@@ -89,7 +89,8 @@ For '${risk}' risk level, this is considered unsafe or uncommon.`;
     score: Number(score.toFixed(3)),
     decision,
     risk_level: risk,
-    confidence: score.toFixed(2),
+    // confidence: score.toFixed(2),
+    confidence: confidence,
     breakdown: {
       same_manager: {
         total: sameTotal,

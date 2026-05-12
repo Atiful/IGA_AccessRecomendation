@@ -6,7 +6,7 @@ const { getRiskScore } = require('./riskScore');
 async function getUserForRecommendation(userId) {
   const rows = await query(`
     SELECT u.id, u.role_id, u.manager_id, r.role_type, r.role_name
-    FROM users u
+    FROM users_access u
     LEFT JOIN roles r ON r.id = u.role_id
     WHERE u.id = ? AND LOWER(u.status) = 'active'
   `, [userId]);
@@ -28,7 +28,7 @@ async function getAccessDetails(role_id, manager_id, accessType) {
       SUM(CASE WHEN role_id = ? AND manager_id <=> ? THEN users_with_access ELSE 0 END) AS same_manager_with_access,
       SUM(CASE WHEN role_id = ? AND NOT (manager_id <=> ?) THEN total_people ELSE 0 END) AS different_manager_total_people,
       SUM(CASE WHEN role_id = ? AND NOT (manager_id <=> ?) THEN users_with_access ELSE 0 END) AS different_manager_with_access,
-      MAX(risk_level) AS risk_level,
+      LOWER(MAX(risk_level)) AS risk_level,
       MAX(requestable_by) AS requestable_by
     FROM ROLE_ACCESS_SUMMARY
     WHERE access_type = ?
@@ -51,11 +51,12 @@ async function batchGetUsers(userIds) {
 
   const placeholders = userIds.map(() => '?').join(', ');
   const rows = await query(`
-    SELECT u.id, u.role_id, u.manager_id, r.role_type, r.role_name
-    FROM users u
-    LEFT JOIN roles r ON r.id = u.role_id
-    WHERE u.id IN (${placeholders}) AND u.status = 'active'
-  `, userIds);
+  SELECT u.id, u.role_id, u.manager_id, r.role_type, r.role_name
+  FROM users_access u
+  LEFT JOIN roles r ON r.id = u.role_id
+  WHERE u.id IN (${placeholders})
+  AND LOWER(u.status) = 'active'
+`, userIds);
 
   // Return as Map for O(1) lookup: userId → user
   const userMap = new Map();
@@ -63,6 +64,11 @@ async function batchGetUsers(userIds) {
     userMap.set(row.id, row);
   }
   return userMap;
+}
+
+
+function normalizeManager(managerId) {
+  return managerId ?? 'NO_MANAGER';
 }
 
 // ─── Batch access details fetch (used by bulk route) ──────────
@@ -79,7 +85,9 @@ async function batchGetAccessDetails(tasks, userMap) {
     const user = userMap.get(task.user_id);
     if (!user) continue;
 
-    const comboKey = `${user.role_id}::${user.manager_id}::${task.requested_role}`;
+    // const comboKey = `${user.role_id}::${user.manager_id}::${task.requested_role}`;
+    const comboKey =
+`${user.role_id}::${normalizeManager(user.manager_id)}::${task.requested_role}`;
     if (!uniqueCombos.has(comboKey)) {
       uniqueCombos.set(comboKey, {
         role_id: user.role_id,
@@ -138,7 +146,9 @@ async function getBulkRecommendation({ userId, accessType, context, userMap, acc
     );
   }
 
-  const comboKey = `${user.role_id}::${user.manager_id}::${accessType}`;
+  // const comboKey = `${user.role_id}::${user.manager_id}::${accessType}`;
+  const comboKey =
+`${user.role_id}::${normalizeManager(user.manager_id)}::${accessType}`;
   const accessDetails = accessMap.get(comboKey);
 
   if (!accessDetails) {

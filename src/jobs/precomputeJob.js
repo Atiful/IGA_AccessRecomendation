@@ -161,13 +161,13 @@ FROM
         role_id,
         COALESCE(manager_id, 'NO_MANAGER') AS manager_id,
         COUNT(*) AS total_people
-    FROM users
+    FROM users_access
     GROUP BY role_id, manager_id
 ) rm
 
 CROSS JOIN applications ac
 
-LEFT JOIN users u
+LEFT JOIN users_access u
     ON u.role_id = rm.role_id
    AND COALESCE(u.manager_id, 'NO_MANAGER') = rm.manager_id
 
@@ -209,8 +209,8 @@ GROUP BY
 
 function startPrecomputeJob() {
   // Runs every 5 minutes
-  cron.schedule('*/1 * * * *', refreshPrecomputedTable);
-  //  cron.schedule('0 0 * * *', refreshPrecomputedTable); // 24hr
+  // cron.schedule('*/1 * * * *', refreshPrecomputedTable);
+   cron.schedule('0 0 * * *', refreshPrecomputedTable); // 24hr
   logger.info('Precompute cron job scheduled (every 1 min)');
 }
 

@@ -43,19 +43,30 @@ function deduplicateTasks(requests) {
 async function getExistingAccessSet(tasks) {
   if (tasks.length === 0) return new Set();
 
-  const conditions = tasks.map(() => '(user_id = ? AND application_id = ?)').join(' OR ');
-  const values     = tasks.flatMap(t => [t.user_id, t.requested_role]);
+  const conditions = tasks
+    .map(() => '(user_id = ? AND application_id = ?)')
+    .join(' OR ');
+
+  const values = tasks.flatMap(t => [
+    t.user_id,
+    t.requested_role
+  ]);
 
   const rows = await query(`
     SELECT user_id, application_id
     FROM user_access
-    WHERE (${conditions}) AND status = 'active'
+    WHERE (${conditions})
+      AND LOWER(status) = 'active'
   `, values);
 
   const existingSet = new Set();
+
   for (const row of rows) {
-    existingSet.add(`${row.user_id}::${row.access_type}`);
+    existingSet.add(
+      `${row.user_id}::${row.application_id}`
+    );
   }
+
   return existingSet;
 }
 
@@ -368,6 +379,117 @@ router.post('/access-review', async (req, res, next) => {
       flagged: filteredResults.length,
       summary,
       results: filteredResults
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+
+
+
+
+
+router.post('/manager-review', async (req, res, next) => {
+  try {
+
+    const { manager_id } = req.body;
+
+    if (!manager_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'MANAGER_ID_REQUIRED'
+      });
+    }
+
+    // Step 1 — get all active users under manager
+    const users = await query(`
+      SELECT id
+      FROM users_access
+      WHERE manager_id = ?
+      AND LOWER(status) = 'active'
+    `, [manager_id]);
+
+    const results = [];
+
+    // Step 2 — get all applications
+    const applications = await query(`
+      SELECT id
+      FROM applications
+    `);
+
+    // Step 3 — process each user + application
+    for (const user of users) {
+
+      for (const app of applications) {
+
+        const userId = user.id;
+        const accessType = app.id;
+
+        // check existing access
+        const alreadyHas = await query(`
+          SELECT id
+          FROM user_access
+          WHERE user_id = ?
+          AND application_id = ?
+          AND LOWER(status) = 'active'
+        `, [userId, accessType]);
+
+        let recommendation;
+
+        try {
+
+          // use SAME WORKING LOGIC as "/" route
+          recommendation = await getSingleRecommendation({
+            userId,
+            accessType,
+            context: 'REQUEST',
+            mode: 'fast'
+          });
+
+        } catch (err) {
+          continue;
+        }
+
+        const decision = recommendation?.decision;
+
+        // CASE 1 — user HAS risky access
+        if (
+          alreadyHas.length > 0 &&
+          decision === 'DO_NOT_RECOMMEND'
+        ) {
+
+          results.push({
+            user_id: userId,
+            access_type: accessType,
+            status: 'risky_access',
+            recommendation
+          });
+        }
+
+        // CASE 2 — user does NOT have but should get
+        else if (
+          alreadyHas.length === 0 &&
+          decision === 'STRONGLY_RECOMMEND'
+        ) {
+
+          results.push({
+            user_id: userId,
+            access_type: accessType,
+            status: 'recommended_to_grant',
+            recommendation
+          });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      manager_id,
+      total_flagged: results.length,
+      results
     });
 
   } catch (err) {
