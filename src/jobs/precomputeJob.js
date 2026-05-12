@@ -209,8 +209,8 @@ GROUP BY
 
 function startPrecomputeJob() {
   // Runs every 5 minutes
-  cron.schedule('*/1 * * * *', refreshPrecomputedTable);
-  //  cron.schedule('0 0 * * *', refreshPrecomputedTable); // 24hr
+  // cron.schedule('*/1 * * * *', refreshPrecomputedTable);
+   cron.schedule('0 0 * * *', refreshPrecomputedTable); // 24hr
   logger.info('Precompute cron job scheduled (every 1 min)');
 }
 
