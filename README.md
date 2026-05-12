@@ -192,29 +192,141 @@ This route uses the stable single recommendation engine internally.
 
 ```json
 {
-  "success": true,
-  "manager_id": "adas",
-  "total_flagged": 2,
-  "results": [
-    {
-      "user_id": "usr-001",
-      "access_type": "Microsoft",
-      "status": "risky_access",
-      "recommendation": {
-        "decision": "DO_NOT_RECOMMEND",
-        "risk_level": "high"
-      }
-    },
-    {
-      "user_id": "usr-002",
-      "access_type": "Saviynt",
-      "status": "recommended_to_grant",
-      "recommendation": {
-        "decision": "STRONGLY_RECOMMEND",
-        "risk_level": "low"
-      }
-    }
-  ]
+    "success": true,
+    "manager_id": "adas",
+    "total_flagged": 5,
+    "results": [
+        {
+            "user_id": "alice",
+            "access_type": "sales2",
+            "status": "risky_access",
+            "recommendation": {
+                "userId": "alice",
+                "accessType": "sales2",
+                "score": 0.154,
+                "decision": "DO_NOT_RECOMMEND",
+                "risk_level": "medium",
+                "confidence": "18",
+                "breakdown": {
+                    "same_manager": {
+                        "total": 4,
+                        "with_access": 1,
+                        "percentage": "25%"
+                    },
+                    "different_manager": {
+                        "total": 96,
+                        "with_access": 1,
+                        "percentage": "1%"
+                    }
+                },
+                "reason": "Only 25% under same manager and 1% across other managers have this access. \nFor 'medium' risk level, this is considered unsafe or uncommon."
+            }
+        },
+        {
+            "user_id": "amanager",
+            "access_type": "Saviynt",
+            "status": "risky_access",
+            "recommendation": {
+                "userId": "amanager",
+                "accessType": "Saviynt",
+                "score": 0.313,
+                "decision": "DO_NOT_RECOMMEND",
+                "risk_level": "medium",
+                "confidence": "36",
+                "breakdown": {
+                    "same_manager": {
+                        "total": 4,
+                        "with_access": 2,
+                        "percentage": "50%"
+                    },
+                    "different_manager": {
+                        "total": 96,
+                        "with_access": 3,
+                        "percentage": "3%"
+                    }
+                },
+                "reason": "Only 50% under same manager and 3% across other managers have this access. \nFor 'medium' risk level, this is considered unsafe or uncommon."
+            }
+        },
+        {
+            "user_id": "bob",
+            "access_type": "Saviynt",
+            "status": "risky_access",
+            "recommendation": {
+                "userId": "bob",
+                "accessType": "Saviynt",
+                "score": 0.313,
+                "decision": "DO_NOT_RECOMMEND",
+                "risk_level": "medium",
+                "confidence": "36",
+                "breakdown": {
+                    "same_manager": {
+                        "total": 4,
+                        "with_access": 2,
+                        "percentage": "50%"
+                    },
+                    "different_manager": {
+                        "total": 96,
+                        "with_access": 3,
+                        "percentage": "3%"
+                    }
+                },
+                "reason": "Only 50% under same manager and 3% across other managers have this access. \nFor 'medium' risk level, this is considered unsafe or uncommon."
+            }
+        },
+        {
+            "user_id": "eacc",
+            "access_type": "fullTest",
+            "status": "risky_access",
+            "recommendation": {
+                "userId": "eacc",
+                "accessType": "fullTest",
+                "score": 0.324,
+                "decision": "DO_NOT_RECOMMEND",
+                "risk_level": "medium",
+                "confidence": "37",
+                "breakdown": {
+                    "same_manager": {
+                        "total": 2,
+                        "with_access": 1,
+                        "percentage": "50%"
+                    },
+                    "different_manager": {
+                        "total": 17,
+                        "with_access": 1,
+                        "percentage": "6%"
+                    }
+                },
+                "reason": "Only 50% under same manager and 6% across other managers have this access. \nFor 'medium' risk level, this is considered unsafe or uncommon."
+            }
+        },
+        {
+            "user_id": "eacc",
+            "access_type": "Saviynt",
+            "status": "risky_access",
+            "recommendation": {
+                "userId": "eacc",
+                "accessType": "Saviynt",
+                "score": 0.324,
+                "decision": "DO_NOT_RECOMMEND",
+                "risk_level": "medium",
+                "confidence": "37",
+                "breakdown": {
+                    "same_manager": {
+                        "total": 2,
+                        "with_access": 1,
+                        "percentage": "50%"
+                    },
+                    "different_manager": {
+                        "total": 17,
+                        "with_access": 1,
+                        "percentage": "6%"
+                    }
+                },
+                "reason": "Only 50% under same manager and 6% across other managers have this access. \nFor 'medium' risk level, this is considered unsafe or uncommon."
+            }
+        }
+    ]
 }
 ```
 
